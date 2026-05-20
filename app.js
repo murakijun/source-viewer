@@ -164,10 +164,11 @@ function createEntryHTML(e) {
           <span class="entry-line">L${e.line}</span>
         </div>
         <div class="entry-right">
-          <a class="btn btn-open" href="vscode://file${e.path}:${e.line}"
-             title="VS Code で開く" onclick="event.stopPropagation();">
+          <button class="btn btn-open"
+            onclick="window.open('vscode://file${e.path}:${e.line}','_blank'); event.stopPropagation();"
+            title="VS Code で開く">
             ↗ 開く
-          </a>
+          </button>
           <span class="toggle-btn" data-toggle="${e.id}">
             ${isOpen ? '▼ 折りたたむ' : '▶ コードを表示'}
           </span>
