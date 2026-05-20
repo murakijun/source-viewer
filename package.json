@@ -1,0 +1,12 @@
+{
+  "name": "source-viewer",
+  "version": "1.0.0",
+  "description": "Excelのパス・行番号からソースコードを表示するビューア",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

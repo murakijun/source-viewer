@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ソースビューア</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- SheetJS (Excel解析) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <!-- highlight.js (シンタックスハイライト) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+  <div id="app">
+
+    <!-- ヘッダー -->
+    <header class="header">
+      <div class="header-inner">
+        <h1 class="logo">
+          <span class="logo-icon">📂</span>
+          ソースビューア
+        </h1>
+        <div class="header-meta" id="headerMeta"></div>
+      </div>
+    </header>
+
+    <!-- アップロードエリア -->
+    <div class="upload-section" id="uploadSection">
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📊</div>
+        <p class="upload-title">Excelファイルをドロップ</p>
+        <p class="upload-sub">またはクリックして選択<br>
+          <span class="upload-hint">B列: ファイルパス　C列: 行番号</span>
+        </p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+    </div>
+
+    <!-- 操作バー (ファイル読み込み後に表示) -->
+    <div class="toolbar" id="toolbar" style="display:none;">
+      <div class="toolbar-left">
+        <span class="entry-count" id="entryCount">0 件</span>
+        <span class="entry-err" id="entryErr"></span>
+      </div>
+      <div class="toolbar-right">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" class="search-input" placeholder="パスで絞り込み...">
+        </div>
+        <select id="contextSelect" class="ctx-select" title="前後に表示する行数">
+          <option value="3">前後 3行</option>
+          <option value="5" selected>前後 5行</option>
+          <option value="10">前後 10行</option>
+          <option value="20">前後 20行</option>
+        </select>
+        <button class="btn btn-secondary" id="reloadBtn">📋 別ファイルを読む</button>
+        <button class="btn btn-primary" id="expandAllBtn">すべて展開</button>
+      </div>
+    </div>
+
+    <!-- エントリ一覧 -->
+    <div class="entries" id="entries"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
