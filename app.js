@@ -1,12 +1,5 @@
 'use strict';
 
-/* ===== API ベース URL
-   ローカル(localhost)では同一オリジン、GitHub Pages では localhost:3001 のローカルサーバーへ
-===== */
-const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? ''
-  : 'http://localhost:3001';
-
 /* ===== 状態 ===== */
 let entries    = [];   // { path, line, id }
 let expanded   = new Set();
@@ -26,7 +19,7 @@ const reloadBtn     = document.getElementById('reloadBtn');
 const expandAllBtn  = document.getElementById('expandAllBtn');
 const headerMeta    = document.getElementById('headerMeta');
 
-/* ===== ファイル選択 ===== */
+/* ===== ファイル選択 (Excel) ===== */
 uploadArea.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', e => {
   if (e.target.files[0]) loadFile(e.target.files[0]);
@@ -90,7 +83,7 @@ function loadFile(file) {
       entries = parsed;
       uploadSection.style.display = 'none';
       toolbar.style.display       = 'flex';
-      headerMeta.textContent      = `${file.name}`;
+      headerMeta.textContent      = file.name;
       entryCount.textContent      = `${entries.length} 件`;
       entryErr.textContent        = skipped ? `(${skipped} 件スキップ)` : '';
       render();
@@ -104,7 +97,6 @@ function loadFile(file) {
 /* ===== フィルタ ===== */
 searchInput.addEventListener('input', render);
 contextSelect.addEventListener('change', () => {
-  // 展開済みのエントリを再読み込み
   expanded.forEach(id => loadCode(id));
 });
 
@@ -149,7 +141,6 @@ function render() {
 
   entriesEl.innerHTML = filtered.map(e => createEntryHTML(e)).join('');
 
-  // 既に展開済みのものは再描画後にコードを表示
   filtered.forEach(e => {
     if (expanded.has(e.id)) loadCode(e.id);
   });
@@ -206,49 +197,98 @@ function toggleEntry(id) {
   }
 }
 
-/* ===== コード読み込み ===== */
+/* ===== コード読み込み: ブラウザで直接ファイルを選択して表示 ===== */
 async function loadCode(id) {
-  const entry   = entries.find(e => e.id === id);
+  const entry = entries.find(e => e.id === id);
   if (!entry) return;
 
-  const ctx     = contextSelect.value;
-  const block   = document.getElementById(`code-${id}`);
-  const loading = document.getElementById(`loading-${id}`);
+  const block = document.getElementById(`code-${id}`);
   if (!block) return;
-
   block.style.display = 'block';
 
-  try {
-    const res  = await fetch(`${API}/api/lines?filepath=${encodeURIComponent(entry.path)}&line=${entry.line}&context=${ctx}`);
-    const data = await res.json();
+  const filename = entry.path.split('/').pop();
 
-    if (!data.ok) {
-      block.innerHTML = `<div class="code-error">❌ ${escapeHTML(data.error)}</div>`;
-      return;
+  block.innerHTML = `
+    <div class="code-pick-wrap">
+      <div class="code-pick-info">
+        <span class="code-pick-icon">📄</span>
+        <div>
+          <div class="code-pick-name">${escapeHTML(filename)}</div>
+          <div class="code-pick-path">${escapeHTML(entry.path)}</div>
+        </div>
+      </div>
+      <button class="btn-pick" onclick="pickFile(${id})">
+        📂 ファイルを選択して表示
+      </button>
+    </div>
+  `;
+}
+
+/* ===== ファイルピッカーで読み込んで表示 ===== */
+async function pickFile(id) {
+  const entry    = entries.find(e => e.id === id);
+  if (!entry) return;
+
+  const filename = entry.path.split('/').pop();
+  const ext      = filename.split('.').pop().toLowerCase();
+
+  try {
+    let file;
+
+    if (window.showOpenFilePicker) {
+      // File System Access API (Chrome / Edge)
+      const [handle] = await window.showOpenFilePicker({ multiple: false });
+      file = await handle.getFile();
+    } else {
+      // フォールバック: input[type=file]
+      file = await pickFileViaInput();
     }
 
-    const html = renderCodeBlock(data.lines, data.ext, entry.path, entry.line, data.total);
-    block.innerHTML = html;
+    if (!file) return;
 
-    // highlight.js 適用
+    const text  = await file.text();
+    const ctx   = parseInt(contextSelect.value, 10);
+    const target = entry.line;
+    const all   = text.split('\n');
+    const start = Math.max(0, target - ctx - 1);
+    const end   = Math.min(all.length, target + ctx);
+
+    const lines = all.slice(start, end).map((txt, i) => ({
+      no:     start + i + 1,
+      text:   txt,
+      target: start + i + 1 === target
+    }));
+
+    const block = document.getElementById(`code-${id}`);
+    if (!block) return;
+
+    block.innerHTML = renderCodeBlock(lines, ext, entry.path, entry.line, all.length);
+
     block.querySelectorAll('code[class*="language-"]').forEach(el => {
       hljs.highlightElement(el);
     });
 
-    // ターゲット行へスクロール
     const targetLine = block.querySelector('.line-target');
     if (targetLine) {
       targetLine.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
   } catch (err) {
-    block.innerHTML = `
-      <div class="code-error">
-        ❌ ローカルサーバーに接続できません。<br>
-        このPCで <code>node server.js</code> を実行してください。<br>
-        <small style="color:var(--text-muted)">${escapeHTML(err.message)}</small>
-      </div>`;
+    if (err.name === 'AbortError') return; // ユーザーがキャンセル
+    const block = document.getElementById(`code-${id}`);
+    if (block) block.innerHTML = `<div class="code-error">❌ ${escapeHTML(err.message)}</div>`;
   }
+}
+
+/* ===== input[type=file] フォールバック ===== */
+function pickFileViaInput() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type  = 'file';
+    input.onchange = () => resolve(input.files[0] || null);
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
 }
 
 /* ===== コードブロックHTML生成 ===== */
@@ -264,15 +304,12 @@ function renderCodeBlock(lines, ext, filepath, targetLine, totalLines) {
   };
   const lang = langMap[ext] || 'plaintext';
 
-  const lineItems = lines.map(l => {
-    const isTarget = l.target;
-    return `
-      <div class="line-row${isTarget ? ' line-target' : ''}">
-        <span class="line-no">${l.no}</span>
-        <code class="line-code language-${lang}">${escapeHTML(l.text)}</code>
-      </div>
-    `;
-  }).join('');
+  const lineItems = lines.map(l => `
+    <div class="line-row${l.target ? ' line-target' : ''}">
+      <span class="line-no">${l.no}</span>
+      <code class="line-code language-${lang}">${escapeHTML(l.text)}</code>
+    </div>
+  `).join('');
 
   const start = lines[0]?.no ?? 1;
   const end   = lines[lines.length - 1]?.no ?? 1;
@@ -290,24 +327,16 @@ function renderCodeBlock(lines, ext, filepath, targetLine, totalLines) {
   `;
 }
 
-/* ===== エディタで開く ===== */
-async function openInEditor(id) {
+/* ===== VS Code で開く (vscode:// URI — サーバー不要) ===== */
+function openInEditor(id) {
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
 
-  try {
-    const res  = await fetch(`${API}/api/open`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ filepath: entry.path, line: entry.line })
-    });
-    const data = await res.json();
-    if (!data.ok) {
-      alert('ファイルを開けませんでした: ' + data.error);
-    }
-  } catch (err) {
-    alert('サーバーに接続できません: ' + err.message);
-  }
+  // vscode://file/絶対パス:行番号 でVS Codeが直接起動する
+  const uri = `vscode://file${entry.path}:${entry.line}`;
+  const a   = document.createElement('a');
+  a.href    = uri;
+  a.click();
 }
 
 /* ===== コピー ===== */
