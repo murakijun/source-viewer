@@ -165,7 +165,7 @@ function createEntryHTML(e) {
         </div>
         <div class="entry-right">
           <button class="btn btn-open"
-            onclick="window.open('vscode://file${e.path}:${e.line}','_blank'); event.stopPropagation();"
+            onclick="openVSCode('${e.path.replace(/\\/g, '/')}',${e.line}); event.stopPropagation();"
             title="VS Code で開く">
             ↗ 開く
           </button>
@@ -326,6 +326,15 @@ function renderCodeBlock(lines, ext, filepath, targetLine, totalLines) {
       ${lineItems}
     </div>
   `;
+}
+
+/* ===== VS Code で開く ===== */
+function openVSCode(path, line) {
+  // Windowsのバックスラッシュをスラッシュに変換
+  let p = path.replace(/\\/g, '/');
+  // Windowsドライブレター (C:/ など) の前に / を追加
+  if (/^[A-Za-z]:/.test(p)) p = '/' + p;
+  location.href = `vscode://file${p}:${line}`;
 }
 
 /* ===== コピー ===== */
