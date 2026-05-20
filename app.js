@@ -164,10 +164,10 @@ function createEntryHTML(e) {
           <span class="entry-line">L${e.line}</span>
         </div>
         <div class="entry-right">
-          <button class="btn btn-open" onclick="openInEditor(${e.id}); event.stopPropagation();"
-                  title="VS Code で開く">
+          <a class="btn btn-open" href="vscode://file${e.path}:${e.line}"
+             title="VS Code で開く" onclick="event.stopPropagation();">
             ↗ 開く
-          </button>
+          </a>
           <span class="toggle-btn" data-toggle="${e.id}">
             ${isOpen ? '▼ 折りたたむ' : '▶ コードを表示'}
           </span>
@@ -325,18 +325,6 @@ function renderCodeBlock(lines, ext, filepath, targetLine, totalLines) {
       ${lineItems}
     </div>
   `;
-}
-
-/* ===== VS Code で開く (vscode:// URI — サーバー不要) ===== */
-function openInEditor(id) {
-  const entry = entries.find(e => e.id === id);
-  if (!entry) return;
-
-  // vscode://file/絶対パス:行番号 でVS Codeが直接起動する
-  const uri = `vscode://file${entry.path}:${entry.line}`;
-  const a   = document.createElement('a');
-  a.href    = uri;
-  a.click();
 }
 
 /* ===== コピー ===== */
